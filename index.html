@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KH90 Developer Console | Multi-Format</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
+
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #010409; color: #c9d1d9; text-align: center; padding: 10px; }
+        .turbo-card { background: #0d1117; border: 1px solid #30363d; padding: 25px; border-radius: 12px; max-width: 400px; margin: 20px auto; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; background: #161b22; border: 1px solid #30363d; color: white; border-radius: 7px; box-sizing: border-box; outline: none; }
+        .speed-btn { background: #238636; color: white; border: none; padding: 14px; width: 100%; border-radius: 7px; font-weight: 700; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        .speed-btn:hover { background: #2ea043; }
+        .speed-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+        .meter-container { width: 100%; background: #21262d; height: 10px; border-radius: 10px; margin: 15px 0; display: none; overflow: hidden; }
+        .meter-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #2f81f7, #58a6ff); transition: width 0.1s linear; }
+        #log { font-size: 14px; margin-top: 10px; color: #8b949e; font-weight: bold; }
+        .badge { background: #2f81f7; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div class="turbo-card">
+        <h2 style="color: #2f81f7; margin-bottom: 5px;">KH90 <span class="badge">MULTI-SERVER</span></h2>
+        <p style="font-size: 12px; margin-bottom: 20px; color: #8b949e;">Developer Console</p>
+
+        <input type="text" id="dev" placeholder="Developer Name">
+        <input type="text" id="app" placeholder="App/Game Name">
+        
+        <select id="mode" onchange="toggleInputs()">
+            <option value="apk">Android APK (File Upload)</option>
+            <option value="html5_link">HTML5 Web App (External Link)</option>
+            <option value="raw_html">Direct HTML Code (Instant Web)</option>
+        </select>
+
+        <input type="file" id="f-in" accept=".apk">
+        <input type="text" id="l-in" style="display:none;" placeholder="Paste Web Link here...">
+        <textarea id="c-in" style="display:none;" placeholder="Paste your <html> code here..." rows="5"></textarea>
+
+        <div class="meter-container" id="m-box">
+            <div class="meter-fill" id="m-fill"></div>
+        </div>
+
+        <button class="speed-btn" id="s-btn" onclick="blastOff()">PUBLISH TO STORE</button>
+        <div id="log">Ready for KH90 Store</div>
+    </div>
+
+    <script>
+        const client = new Appwrite.Client();
+        
+        // ਠੀਕ ਕੀਤਾ ਹੋਇਆ Endpoint ਅਤੇ Project ID
+        const projectID = '69e9d1730015c566c965'; 
+        client
+            .setEndpoint('https://sgp.cloud.appwrite.io/v1') 
+            .setProject(projectID);
+
+        const databases = new Appwrite.Databases(client);
+        const storage = new Appwrite.Storage(client);
+
+        const databaseID = '69e992bb003825ccf359';
+        const collectionID = 'gameslist';
+        const bucketID = '69e99e2a000d2865fb94';
+
+        function toggleInputs() {
+            const m = document.getElementById('mode').value;
+            document.getElementById('f-in').style.display = (m === 'apk') ? 'block' : 'none';
+            document.getElementById('l-in').style.display = (m === 'html5_link') ? 'block' : 'none';
+            document.getElementById('c-in').style.display = (m === 'raw_html') ? 'block' : 'none';
+        }
+
+        async function blastOff() {
+            const dev = document.getElementById('dev').value;
+            const app = document.getElementById('app').value;
+            const mode = document.getElementById('mode').value;
+            const btn = document.getElementById('s-btn');
+            const log = document.getElementById('log');
+            const mBox = document.getElementById('m-box');
+            const mFill = document.getElementById('m-fill');
+
+            if(!dev || !app) return alert("ਪਲੀਜ਼ ਸਾਰੀ ਜਾਣਕਾਰੀ ਭਰੋ!");
+
+            btn.disabled = true;
+            log.innerText = "🚀 ਪ੍ਰੋਸੈਸਿੰਗ ਸ਼ੁਰੂ ਹੋ ਰਹੀ ਹੈ...";
+
+            try {
+                let finalUrl = "";
+                let typeLabel = "";
+
+                if(mode === 'apk') {
+                    const file = document.getElementById('f-in').files[0];
+                    if(!file) throw new Error("APK ਫਾਈਲ ਚੁਣੋ!");
+                    mBox.style.display = "block";
+                    
+                    const uploadedFile = await storage.createFile(bucketID, 'unique()', file, (progress) => {
+                        const p = progress.progress;
+                        mFill.style.width = p + "%";
+                        log.innerText = "Uploading APK: " + Math.round(p) + "%";
+                    });
+                    
+                    // ਠੀਕ ਕੀਤਾ ਹੋਇਆ Download Link (SGP ਸਰਵਰ ਲਈ)
+                    finalUrl = `https://sgp.cloud.appwrite.io/v1/storage/buckets/${bucketID}/files/${uploadedFile.$id}/download?project=${projectID}`;
+                    typeLabel = "Android APK";
+                } 
+                else if(mode === 'html5_link') {
+                    finalUrl = document.getElementById('l-in').value;
+                    if(!finalUrl) throw new Error("ਲਿੰਕ ਪਾਓ!");
+                    typeLabel = "HTML5 Web";
+                }
+                else if(mode === 'raw_html') {
+                    const code = document.getElementById('c-in').value;
+                    if(!code) throw new Error("ਕੋਡ ਪਾਓ!");
+                    const blob = new Blob([code], {type: 'text/html'});
+                    const file = new File([blob], app + ".html", {type: "text/html"});
+                    
+                    const uploadedFile = await storage.createFile(bucketID, 'unique()', file);
+                    
+                    // ਠੀਕ ਕੀਤਾ ਹੋਇਆ View Link
+                    finalUrl = `https://sgp.cloud.appwrite.io/v1/storage/buckets/${bucketID}/files/${uploadedFile.$id}/view?project=${projectID}`;
+                    typeLabel = "Instant HTML5";
+                }
+
+                await databases.createDocument(databaseID, collectionID, 'unique()', {
+                    gameTitle: app,
+                    developerName: dev,
+                    downloadUrl: finalUrl,
+                    platform: typeLabel,
+                    releaseDate: new Date().toISOString()
+                });
+
+                log.innerHTML = "<b style='color:#3fb950'>✅ PUBLISHED SUCCESSFULLY!</b>";
+                setTimeout(() => location.reload(), 3000);
+
+            } catch (err) {
+                alert("Error: " + err.message);
+                btn.disabled = false;
+                log.innerText = "Failed.";
+            }
+        }
+    </script>
+</body>
+</html>
