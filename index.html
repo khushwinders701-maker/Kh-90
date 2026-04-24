@@ -50,7 +50,6 @@
     <script>
         const client = new Appwrite.Client();
         
-        // ਠੀਕ ਕੀਤਾ ਹੋਇਆ Endpoint ਅਤੇ Project ID
         const projectID = '69e9d1730015c566c965'; 
         client
             .setEndpoint('https://sgp.cloud.appwrite.io/v1') 
@@ -93,13 +92,19 @@
                     if(!file) throw new Error("APK ਫਾਈਲ ਚੁਣੋ!");
                     mBox.style.display = "block";
                     
-                    const uploadedFile = await storage.createFile(bucketID, 'unique()', file, (progress) => {
-                        const p = progress.progress;
-                        mFill.style.width = p + "%";
-                        log.innerText = "Uploading APK: " + Math.round(p) + "%";
-                    });
+                    // ਇੱਥੇ 'Permissions' ਵਾਲਾ ਪੈਰਾਮੀਟਰ ਠੀਕ ਕੀਤਾ ਗਿਆ ਹੈ
+                    const uploadedFile = await storage.createFile(
+                        bucketID, 
+                        'unique()', 
+                        file, 
+                        ['read("any")'], // ਇਹ ਹਿੱਸਾ ਜ਼ਰੂਰੀ ਸੀ
+                        (progress) => {
+                            const p = progress.progress;
+                            mFill.style.width = p + "%";
+                            log.innerText = "Uploading APK: " + Math.round(p) + "%";
+                        }
+                    );
                     
-                    // ਠੀਕ ਕੀਤਾ ਹੋਇਆ Download Link (SGP ਸਰਵਰ ਲਈ)
                     finalUrl = `https://sgp.cloud.appwrite.io/v1/storage/buckets/${bucketID}/files/${uploadedFile.$id}/download?project=${projectID}`;
                     typeLabel = "Android APK";
                 } 
@@ -114,9 +119,14 @@
                     const blob = new Blob([code], {type: 'text/html'});
                     const file = new File([blob], app + ".html", {type: "text/html"});
                     
-                    const uploadedFile = await storage.createFile(bucketID, 'unique()', file);
+                    // ਇੱਥੇ ਵੀ Permissions ਐਡ ਕੀਤੀਆਂ ਹਨ
+                    const uploadedFile = await storage.createFile(
+                        bucketID, 
+                        'unique()', 
+                        file,
+                        ['read("any")']
+                    );
                     
-                    // ਠੀਕ ਕੀਤਾ ਹੋਇਆ View Link
                     finalUrl = `https://sgp.cloud.appwrite.io/v1/storage/buckets/${bucketID}/files/${uploadedFile.$id}/view?project=${projectID}`;
                     typeLabel = "Instant HTML5";
                 }
